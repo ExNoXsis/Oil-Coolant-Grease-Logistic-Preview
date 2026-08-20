@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛢️ Monitor Oil System</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS CDN for Excel Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Supabase JS Client CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .sidebar-item-active { background-color: #374151; border-left: 4px solid #3b82f6; }
+        .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col">
+
+    <!-- 1. LOGIN MODAL / SCREEN -->
+    <div id="login-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 bg-opacity-90">
+        <div class="bg-slate-800 border border-slate-700 p-8 rounded-xl shadow-2xl w-full max-w-md">
+            <div class="text-center mb-6">
+                <div class="text-4xl mb-2">🛢️</div>
+                <h1 class="text-2xl font-bold text-white tracking-wider">MONITOR OIL</h1>
+                <p class="text-slate-400 text-sm mt-1">Sistem Kontrol & Auditing Logistik Oli</p>
+            </div>
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">Username / ID</label>
+                    <input type="text" id="login-username" required placeholder="Masukkan username" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">Password / Kode Akses</label>
+                    <input type="password" id="login-password" required placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-lg transition duration-200 shadow-lg shadow-blue-600/30">
+                        <i class="fa-solid fa-right-to-bracket mr-2"></i> LOGIN
+                    </button>
+                </div>
+            </form>
+            <div class="mt-6 text-xs text-center text-slate-500">
+                <span>Akses Cepat Demo: </span>
+                <span class="text-blue-400 cursor-pointer font-bold" onclick="fillLogin('alex','admin123')">Alex (Admin)</span> | 
+                <span class="text-emerald-400 cursor-pointer font-bold" onclick="fillLogin('user','user123')">User</span> | 
+                <span class="text-amber-400 cursor-pointer font-bold" onclick="fillLogin('viewer','view123')">Viewer</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP WRAPPER -->
+    <div id="main-app" class="flex-1 flex overflow-hidden hidden">
+
+        <!-- SIDEBAR NAVIGATION -->
+        <aside class="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
+            <div>
+                <!-- Brand -->
+                <div class="p-4 border-b border-slate-800 flex items-center gap-3">
+                    <span class="text-2xl">🛢️</span>
+                    <div>
+                        <h2 class="font-bold text-slate-100 tracking-wider">MONITOR OIL</h2>
+                        <span id="user-role-badge" class="text-[10px] bg-blue-900 text-blue-300 px-2 py-0.5 rounded font-semibold uppercase">ADMIN</span>
+                    </div>
+                </div>
+
+                <!-- Global Search -->
+                <div class="p-3">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-500 text-sm"></i>
+                        <input type="text" id="global-search" placeholder="Global Search..." class="w-full bg-slate-900 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <!-- Date Filter Quick Pick -->
+                <div class="px-3 pb-3 border-b border-slate-800">
+                    <select id="global-date-filter" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none">
+                        <option value="today">Hari Ini (Today)</option>
+                        <option value="yesterday">Kemarin (Yesterday)</option>
+                        <option value="week" selected>Minggu Ini (This Week)</option>
+                        <option value="month">Bulan Ini (This Month)</option>
+                        <option value="custom">Custom Date Range</option>
+                    </select>
+                </div>
+
+                <!-- Menu Items -->
+                <nav class="mt-2 px-2 space-y-1 text-sm text-slate-300 overflow-y-auto max-h-[calc(100vh-280px)]">
+                    <a href="#" onclick="switchTab('dashboard')" id="nav-dashboard" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-800 transition sidebar-item-active">
+                        <i class="fa-solid fa-house w-6 text-blue-400"></i> Dashboard
+                    </a>
+                    <a href="#" onclick="switchTab('stock')" id="nav-stock" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-boxes-stacked w-6 text-emerald-400"></i> Stock Monitor
+                    </a>
+                    <a href="#" onclick="switchTab('raw')" id="nav-raw" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-table-list w-6 text-slate-400"></i> Data Raw
+                    </a>
+                    <a href="#" onclick="switchTab('transfer')" id="nav-transfer" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-arrows-rotate w-6 text-cyan-400"></i> Transfer Monitor
+                    </a>
+                    <a href="#" onclick="switchTab('balance')" id="nav-balance" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-scale-balanced w-6 text-indigo-400"></i> Balance
+                    </a>
+                    <a href="#" onclick="switchTab('consumption')" id="nav-consumption" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-truck-ramp-box w-6 text-amber-400"></i> Consumption
+                    </a>
+                    <a href="#" onclick="switchTab('issuer')" id="nav-issuer" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-trophy w-6 text-yellow-400"></i> Biggest Oil Issuer
+                    </a>
+                    <a href="#" onclick="switchTab('analytics')" id="nav-analytics" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-chart-line w-6 text-purple-400"></i> Analytics
+                    </a>
+                    <a href="#" onclick="switchTab('audit')" id="nav-audit" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-user-shield w-6 text-rose-400"></i> Audit
+                    </a>
+                    <a href="#" onclick="switchTab('import')" id="nav-import" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-file-import w-6 text-teal-400"></i> Import Excel
+                    </a>
+                    <a href="#" onclick="switchTab('reports')" id="nav-reports" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-file-pdf w-6 text-red-400"></i> Reports
+                    </a>
+                    <a href="#" onclick="switchTab('settings')" id="nav-settings" class="flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-gear w-6 text-slate-400"></i> Settings
+                    </a>
+                </nav>
+            </div>
+
+            <!-- User Info & Logout -->
+            <div class="p-3 border-t border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2 overflow-hidden">
+                    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-xs shrink-0" id="user-avatar">A</div>
+                    <div class="truncate">
+                        <p class="text-xs font-semibold text-slate-200 truncate" id="user-display-name">Alex (Admin)</p>
+                        <p class="text-[10px] text-slate-500 truncate" id="user-display-email">alex@company.com</p>
+                    </div>
+                </div>
+                <button onclick="logout()" title="Logout" class="text-slate-400 hover:text-rose-400 p-1.5 transition">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- CONTENT AREA -->
+        <main class="flex-1 overflow-y-auto bg-slate-900 p-6">
+            
+            <!-- NOTIFICATION CENTER BAR -->
+            <div id="notification-bar" class="mb-6 space-y-2">
+                <div class="flex items-center justify-between bg-amber-900/30 border border-amber-600/40 px-4 py-2.5 rounded-lg text-amber-200 text-xs">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-400 text-base"></i>
+                        <span><b>Notification Center:</b> 🔴 2 Oil Types Low Stock | ⚠️ 1 Audit Anomaly Pending Review</span>
+                    </div>
+                    <button class="text-amber-400 hover:text-amber-200" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+
+            <!-- SECTION: DASHBOARD -->
+            <section id="sec-dashboard" class="space-y-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">🏠 Operations Dashboard</h1>
+                        <p class="text-xs text-slate-400">Ringkasan real-time pergerakan, stok, dan alert oli.</p>
+                    </div>
+                </div>
+
+                <!-- KPI CARDS GRID -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="glass-card p-4 rounded-xl">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-medium text-slate-400">Total Stock</p>
+                                <h3 class="text-2xl font-bold text-emerald-400 mt-1">6,780 L</h3>
+                            </div>
+                            <div class="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-lg"><i class="fa-solid fa-boxes-stacked text-xl"></i></div>
+                        </div>
+                        <p class="text-[10px] text-emerald-500 mt-2"><i class="fa-solid fa-circle-check"></i> Normal operational range</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-medium text-slate-400">Total Consumption</p>
+                                <h3 class="text-2xl font-bold text-amber-400 mt-1">1,240 L</h3>
+                            </div>
+                            <div class="p-2.5 bg-amber-500/10 text-amber-400 rounded-lg"><i class="fa-solid fa-gas-pump text-xl"></i></div>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-2">Periode terpilih</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-medium text-slate-400">Transfer Flow (In / Out)</p>
+                                <h3 class="text-2xl font-bold text-cyan-400 mt-1">450 / 450 L</h3>
+                            </div>
+                            <div class="p-2.5 bg-cyan-500/10 text-cyan-400 rounded-lg"><i class="fa-solid fa-arrows-right-left text-xl"></i></div>
+                        </div>
+                        <p class="text-[10px] text-cyan-400 mt-2"><i class="fa-solid fa-check-double"></i> Balanced movement</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-medium text-slate-400">Active Facilities</p>
+                                <h3 class="text-2xl font-bold text-purple-400 mt-1">4 Truck / 2 Skid</h3>
+                            </div>
+                            <div class="p-2.5 bg-purple-500/10 text-purple-400 rounded-lg"><i class="fa-solid fa-truck-field text-xl"></i></div>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-2">Lube Truck & Skid Operational</p>
+                    </div>
+                </div>
+
+                <!-- CHARTS ROW -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="glass-card p-5 rounded-xl">
+                        <h4 class="text-sm font-bold text-slate-200 mb-4"><i class="fa-solid fa-chart-area text-blue-400 mr-2"></i> Daily Oil Consumption Trend</h4>
+                        <div class="h-64"><canvas id="chart-daily-consumption"></canvas></div>
+                    </div>
+                    <div class="glass-card p-5 rounded-xl">
+                        <h4 class="text-sm font-bold text-slate-200 mb-4"><i class="fa-solid fa-chart-pie text-emerald-400 mr-2"></i> Consumption by Oil Type</h4>
+                        <div class="h-64"><canvas id="chart-oil-type"></canvas></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: STOCK MONITOR -->
+            <section id="sec-stock" class="space-y-6 hidden">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">📦 Oil Stock Monitor</h1>
+                        <p class="text-xs text-slate-400">Monitoring posisi stok berdasarkan Warehouse, Lube Truck, dan Lube Skid.</p>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-800 text-slate-200 uppercase font-semibold border-b border-slate-700">
+                            <tr>
+                                <th class="p-3">Oil Type</th>
+                                <th class="p-3">Storage / Warehouse</th>
+                                <th class="p-3">Lube Truck</th>
+                                <th class="p-3">Lube Skid</th>
+                                <th class="p-3">Total Stock</th>
+                                <th class="p-3">Min Threshold</th>
+                                <th class="p-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            <tr class="hover:bg-slate-800/50">
+                                <td class="p-3 font-semibold text-white">SAE 10</td>
+                                <td class="p-3">1,000 L</td>
+                                <td class="p-3">250 L</td>
+                                <td class="p-3">100 L</td>
+                                <td class="p-3 font-bold text-emerald-400">1,350 L</td>
+                                <td class="p-3">500 L</td>
+                                <td class="p-3"><span class="bg-emerald-900/50 text-emerald-400 px-2 py-1 rounded border border-emerald-700">🟢 Normal</span></td>
+                            </tr>
+                            <tr class="hover:bg-slate-800/50">
+                                <td class="p-3 font-semibold text-white">SAE 30</td>
+                                <td class="p-3">800 L</td>
+                                <td class="p-3">150 L</td>
+                                <td class="p-3">50 L</td>
+                                <td class="p-3 font-bold text-emerald-400">1,000 L</td>
+                                <td class="p-3">400 L</td>
+                                <td class="p-3"><span class="bg-emerald-900/50 text-emerald-400 px-2 py-1 rounded border border-emerald-700">🟢 Normal</span></td>
+                            </tr>
+                            <tr class="hover:bg-slate-800/50">
+                                <td class="p-3 font-semibold text-white">SAE 40</td>
+                                <td class="p-3">200 L</td>
+                                <td class="p-3">80 L</td>
+                                <td class="p-3">40 L</td>
+                                <td class="p-3 font-bold text-rose-400">320 L</td>
+                                <td class="p-3">500 L</td>
+                                <td class="p-3"><span class="bg-rose-900/50 text-rose-400 px-2 py-1 rounded border border-rose-700 animate-pulse">🔴 Critical</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- SECTION: AUDIT -->
+            <section id="sec-audit" class="space-y-6 hidden">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">🕵️ Audit & Approval Engine</h1>
+                        <p class="text-xs text-slate-400">Deteksi anomali data & sistem approval via email otomatis.</p>
+                    </div>
+                </div>
+
+                <!-- AUDIT ITEM CARD DEMO -->
+                <div class="glass-card p-6 rounded-xl border border-amber-500/30">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-700 pb-4 mb-4">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="bg-amber-500/20 text-amber-300 font-bold px-2.5 py-1 rounded text-xs border border-amber-500/30">AUDIT #000125</span>
+                                <span class="text-xs text-slate-400">Deteksi: 20 Aug 2026</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-white mt-1">⚠️ Flagged Issue: Kandidat Duplikat</h3>
+                        </div>
+                        <div id="audit-status-badge-000125">
+                            <span class="bg-amber-900/50 text-amber-300 border border-amber-600 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                                <i class="fa-solid fa-clock"></i> PENDING APPROVAL
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-slate-300 mb-6 bg-slate-800/60 p-4 rounded-lg">
+                        <div><p class="text-slate-500 uppercase font-semibold">Unit ID</p><p class="font-bold text-white text-sm">GLTH 002</p></div>
+                        <div><p class="text-slate-500 uppercase font-semibold">SAE / Oil Type</p><p class="font-bold text-white text-sm">SAE 40</p></div>
+                        <div><p class="text-slate-500 uppercase font-semibold">Quantity</p><p class="font-bold text-amber-400 text-sm">7 Liter</p></div>
+                        <div><p class="text-slate-500 uppercase font-semibold">Shift</p><p class="font-bold text-white text-sm">Day Shift (07)</p></div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="text-xs text-slate-400">
+                            <i class="fa-solid fa-envelope text-blue-400 mr-1"></i> Notifikasi email approval terintegrasi ke <b>alex@company.com</b>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="triggerEmailApproval('000125')" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition shadow-md">
+                                <i class="fa-solid fa-paper-plane mr-1.5"></i> Minta Konfirmasi Audit (Send Email)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: SETTINGS -->
+            <section id="sec-settings" class="space-y-6 hidden">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">⚙️ System Settings</h1>
+                        <p class="text-xs text-slate-400">Pengaturan tampilan, user, threshold, dan backup.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass-card p-5 rounded-xl space-y-4">
+                        <h3 class="text-sm font-bold text-white border-b border-slate-700 pb-2"><i class="fa-solid fa-palette text-pink-400 mr-2"></i> Appearance</h3>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Theme Mode</label>
+                            <select class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white">
+                                <option>Dark Mode (Default)</option>
+                                <option>Light Mode</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-xl space-y-4">
+                        <h3 class="text-sm font-bold text-white border-b border-slate-700 pb-2"><i class="fa-solid fa-database text-teal-400 mr-2"></i> Backup & Restore</h3>
+                        <div class="flex gap-2">
+                            <button class="bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold px-4 py-2 rounded">Backup Data JSON</button>
+                            <button class="bg-slate-800 border border-slate-700 text-slate-300 text-xs font-semibold px-4 py-2 rounded">Restore Data</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        function fillLogin(u, p) {
+            document.getElementById('login-username').value = u;
+            document.getElementById('login-password').value = p;
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('login-username').value;
+            currentUser = { username: u, role: u === 'alex' ? 'ADMIN' : (u === 'user' ? 'USER' : 'VIEWER') };
+            
+            document.getElementById('login-modal').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            document.getElementById('user-display-name').innerText = u.toUpperCase() + " (" + currentUser.role + ")";
+            document.getElementById('user-role-badge').innerText = currentUser.role;
+
+            initCharts();
+        }
+
+        function logout() {
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('login-modal').classList.remove('hidden');
+        }
+
+        function switchTab(tabId) {
+            const sections = ['dashboard', 'stock', 'raw', 'transfer', 'balance', 'consumption', 'issuer', 'analytics', 'audit', 'import', 'reports', 'settings'];
+            sections.forEach(s => {
+                const el = document.getElementById('sec-' + s);
+                if (el) el.classList.add('hidden');
+                const nav = document.getElementById('nav-' + s);
+                if (nav) nav.classList.remove('sidebar-item-active');
+            });
+
+            const activeSec = document.getElementById('sec-' + tabId);
+            if (activeSec) activeSec.classList.remove('hidden');
+            const activeNav = document.getElementById('nav-' + tabId);
+            if (activeNav) activeNav.classList.add('sidebar-item-active');
+        }
+
+        function initCharts() {
+            const ctx1 = document.getElementById('chart-daily-consumption').getContext('2d');
+            new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: ['15 Aug', '16 Aug', '17 Aug', '18 Aug', '19 Aug', '20 Aug'],
+                    datasets: [{
+                        label: 'Consumption (Liter)',
+                        data: [180, 220, 195, 240, 210, 195],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const ctx2 = document.getElementById('chart-oil-type').getContext('2d');
+            new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['SAE 40', 'SAE 30', 'SAE 10', 'SAE 50'],
+                    datasets: [{
+                        data: [45, 25, 18, 12],
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function triggerEmailApproval(auditId) {
+            alert('Request Audit Approval #' + auditId + ' telah dikirimkan ke backend Supabase & email Alex!');
+        }
+    </script>
+</body>
+</html>
