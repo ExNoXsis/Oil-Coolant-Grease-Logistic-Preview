@@ -1292,6 +1292,19 @@ function toggleSidebar(){
 }
 
 </script>
+<!-- SUPABASE CONNECTION -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+<script>
+const SUPABASE_URL = "PUBLISHABLE_KEY_KAMU";
+const SUPABASE_PUBLISHABLE_KEY = "PUBLISHABLE_KEY_KAMU";
+
+const supabase = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY
+);
+
+console.log("Supabase connected");
+</script>
 </body>
 </html>
