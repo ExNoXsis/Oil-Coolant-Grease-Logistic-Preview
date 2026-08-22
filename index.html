@@ -1178,6 +1178,10 @@ let currentUser = null;
 
 function login(){
 
+    /* LOGIN */
+
+async function login(){
+
     const username =
         document.getElementById("username").value.trim();
 
@@ -1191,33 +1195,114 @@ function login(){
         return;
     }
 
-    /*
-       LOGIN SEMENTARA.
+    try {
 
-       Nanti akan diganti dengan sistem authentication
-       yang benar-benar aman.
-    */
+        // 1. Cari email berdasarkan username
+        const { data: email, error: emailError } =
+            await supabaseClient.rpc(
+                "get_login_email",
+                {
+                    p_username: username
+                }
+            );
 
-    currentUser = username;
+        if(emailError){
 
-    document.getElementById("loginPage").style.display="none";
+            console.error("Username lookup error:", emailError);
 
-    document.getElementById("app").style.display="block";
+            alert("Gagal mencari akun.");
 
-    document.getElementById("userDisplay").textContent=username;
+            return;
+        }
 
-    if(username.toLowerCase()==="alex"){
+        if(!email){
 
-        document.getElementById("roleDisplay").textContent="Administrator";
+            alert("Username tidak ditemukan atau akun tidak aktif.");
 
-    }else{
+            return;
+        }
 
-        document.getElementById("roleDisplay").textContent="User";
+        // 2. Login ke Supabase Auth
+        const { data, error } =
+            await supabaseClient.auth.signInWithPassword({
+
+                email: email,
+                password: password
+
+            });
+
+        if(error){
+
+            console.error("Login error:", error);
+
+            alert("Username atau password salah.");
+
+            return;
+        }
+
+        // 3. Ambil profil pengguna
+        const { data: profile, error: profileError } =
+            await supabaseClient
+                .from("profiles")
+                .select("username, full_name, role, is_active")
+                .eq("id", data.user.id)
+                .single();
+
+        if(profileError){
+
+            console.error("Profile error:", profileError);
+
+            await supabaseClient.auth.signOut();
+
+            alert("Profil pengguna tidak ditemukan.");
+
+            return;
+        }
+
+        // 4. Cek status akun
+        if(!profile.is_active){
+
+            await supabaseClient.auth.signOut();
+
+            alert("Akun kamu tidak aktif.");
+
+            return;
+        }
+
+        // 5. Simpan user aktif
+        currentUser = profile.username;
+
+        // 6. Tampilkan aplikasi
+        document.getElementById("loginPage").style.display = "none";
+
+        document.getElementById("app").style.display = "block";
+
+        document.getElementById("userDisplay").textContent =
+            profile.full_name || profile.username;
+
+        // 7. Tampilkan role
+        if(profile.role === "admin"){
+
+            document.getElementById("roleDisplay").textContent =
+                "Administrator";
+
+        }else{
+
+            document.getElementById("roleDisplay").textContent =
+                "User";
+        }
+
+        console.log("Login berhasil:", profile);
+
+    } catch(error){
+
+        console.error("Unexpected login error:", error);
+
+        alert("Terjadi kesalahan saat proses login.");
 
     }
 
 }
-
 
 /* LOGOUT */
 
