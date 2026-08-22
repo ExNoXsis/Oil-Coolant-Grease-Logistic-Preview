@@ -1276,16 +1276,16 @@ async function login(){
 
         }
 
-    } catch(error){
+   } catch(error){
 
-        console.error("LOGIN ERROR:", error);
+    console.error("LOGIN ERROR:", error);
 
-        alert("Terjadi kesalahan saat login.");
-
-    }
+    alert(
+        "LOGIN ERROR:\n\n" +
+        (error?.message || error)
+    );
 
 }
-
 
 /* LOGOUT */
 
