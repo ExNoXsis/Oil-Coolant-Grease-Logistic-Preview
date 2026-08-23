@@ -1370,7 +1370,159 @@ function logout(){
 
 }
 
+/* DASHBOARD DATA */
 
+async function loadDashboard(){
+
+    try {
+
+        /* =========================================
+           1. TOTAL CONSUMPTION
+           Oil + Coolant saja
+           ========================================= */
+
+        const { data: consumptionData, error: consumptionError } =
+            await supabaseClient
+                .from("raw_data")
+                .select(`
+                    consumption,
+                    oil_types!inner(category)
+                `)
+                .in("oil_types.category", ["OIL", "COOLANT"]);
+
+
+        if(consumptionError){
+
+            console.error(
+                "CONSUMPTION ERROR:",
+                consumptionError
+            );
+
+        }else{
+
+            const totalConsumption =
+                (consumptionData || []).reduce(
+                    (total, row) =>
+                        total + Number(row.consumption || 0),
+                    0
+                );
+
+            document.getElementById("totalConsumption")
+                .textContent =
+                    totalConsumption.toLocaleString("id-ID") + " L";
+        }
+
+
+        /* =========================================
+           2. TOTAL STOCK
+           Oil + Coolant saja
+           ========================================= */
+
+        const { data: stockData, error: stockError } =
+            await supabaseClient
+                .from("v_stock_balance")
+                .select("balance, category")
+                .in("category", ["OIL", "COOLANT"]);
+
+
+        if(stockError){
+
+            console.error(
+                "STOCK ERROR:",
+                stockError
+            );
+
+        }else{
+
+            const totalStock =
+                (stockData || []).reduce(
+                    (total, row) =>
+                        total + Number(row.balance || 0),
+                    0
+                );
+
+            document.getElementById("totalStock")
+                .textContent =
+                    totalStock.toLocaleString("id-ID") + " L";
+        }
+
+
+        /* =========================================
+           3. UNIT AKTIF
+           ========================================= */
+
+        const {
+            count: activeUnits,
+            error: unitError
+        } = await supabaseClient
+            .from("units")
+            .select("*", {
+                count: "exact",
+                head: true
+            })
+            .eq("status", "ACTIVE");
+
+
+        if(unitError){
+
+            console.error(
+                "UNIT ERROR:",
+                unitError
+            );
+
+        }else{
+
+            document.getElementById("activeUnits")
+                .textContent =
+                    activeUnits || 0;
+        }
+
+
+        /* =========================================
+           4. AUDIT PENDING
+           ========================================= */
+
+        const {
+            count: pendingAudits,
+            error: auditError
+        } = await supabaseClient
+            .from("audits")
+            .select("*", {
+                count: "exact",
+                head: true
+            })
+            .eq("status", "PENDING");
+
+
+        if(auditError){
+
+            console.error(
+                "AUDIT ERROR:",
+                auditError
+            );
+
+        }else{
+
+            document.getElementById("pendingAudits")
+                .textContent =
+                    pendingAudits || 0;
+        }
+
+
+        console.log(
+            "Dashboard berhasil mengambil data Supabase."
+        );
+
+    } catch(error){
+
+        console.error(
+            "DASHBOARD ERROR:",
+            error
+        );
+
+    }
+
+}
 /* NAVIGATION */
 
 function showView(viewId,button){
