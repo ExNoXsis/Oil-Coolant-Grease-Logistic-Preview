@@ -1176,8 +1176,6 @@ let currentUser = null;
 
 /* LOGIN */
 
-/* LOGIN */
-
 async function login(){
 
     const username =
@@ -1195,11 +1193,7 @@ async function login(){
 
     try {
 
-        /* =========================================
-           1. CARI EMAIL BERDASARKAN USERNAME
-           ========================================= */
-
-        const { data: email, error: emailError } =
+                const { data: email, error: emailError } =
             await supabaseClient.rpc(
                 "get_login_email",
                 {
@@ -1229,11 +1223,7 @@ async function login(){
         }
 
 
-        /* =========================================
-           2. LOGIN SUPABASE AUTH
-           ========================================= */
-
-        const { data, error } =
+                const { data, error } =
             await supabaseClient.auth.signInWithPassword({
 
                 email: email,
@@ -1254,10 +1244,6 @@ async function login(){
             return;
         }
 
-
-        /* =========================================
-           3. AMBIL PROFILE USER
-           ========================================= */
 
         const { data: profile, error: profileError } =
             await supabaseClient
@@ -1287,11 +1273,7 @@ async function login(){
         }
 
 
-        /* =========================================
-           4. CEK AKUN AKTIF
-           ========================================= */
-
-        if(!profile.is_active){
+          if(!profile.is_active){
 
             await supabaseClient.auth.signOut();
 
@@ -1303,10 +1285,7 @@ async function login(){
         }
 
 
-        /* =========================================
-           5. LOGIN BERHASIL
-           ========================================= */
-
+  
         currentUser = data.user;
 
 
@@ -1318,10 +1297,7 @@ async function login(){
             .style.display = "block";
 
 
-        /* =========================================
-           6. TAMPILKAN NAMA USER
-           ========================================= */
-
+  
         document.getElementById("userDisplay")
             .textContent =
                 profile.full_name ||
@@ -1329,10 +1305,7 @@ async function login(){
                 username;
 
 
-        /* =========================================
-           7. TAMPILKAN ROLE DARI DATABASE
-           ========================================= */
-
+  
         document.getElementById("roleDisplay")
             .textContent =
                 profile.role === "admin"
@@ -1340,10 +1313,7 @@ async function login(){
                     : "User";
 
 
-        /* =========================================
-           8. SIMPAN PROFILE UNTUK DIGUNAKAN APLIKASI
-           ========================================= */
-
+  
         window.currentProfile = profile;
 
 
