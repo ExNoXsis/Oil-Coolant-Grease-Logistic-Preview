@@ -1525,52 +1525,131 @@ async function loadDashboard(){
     }
 
 }
-/* NAVIGATION */
+/* =========================
+   NAVIGATION
+========================= */
+    console.log("NAVIGATION SCRIPT AKTIF");
 
-function showView(viewId,button){
+function showView(viewId, button){
 
-    document.querySelectorAll(".view")
-        .forEach(view=>{
-            view.classList.remove("active");
-        });
+    console.log("NAVIGASI:", viewId);
 
-    const target =
-        document.getElementById(viewId);
+    /* Sembunyikan semua view */
+    document.querySelectorAll(".view").forEach(view => {
+        view.classList.remove("active");
+    });
 
-    if(target){
-        target.classList.add("active");
+    /* Tampilkan view tujuan */
+    const target = document.getElementById(viewId);
+
+    if(!target){
+
+        console.error(
+            "VIEW TIDAK DITEMUKAN:",
+            viewId
+        );
+
+        return;
     }
 
+    target.classList.add("active");
 
-    document.querySelectorAll(".menu button")
-        .forEach(btn=>{
-            btn.classList.remove("active");
-        });
 
+    /* Hapus status active semua tombol */
+    document.querySelectorAll(".menu button").forEach(btn => {
+        btn.classList.remove("active");
+    });
+
+
+    /* Aktifkan tombol yang diklik */
     if(button){
+
         button.classList.add("active");
+
     }
 
 
-    const titles={
-        dashboard:"Dashboard",
-        monitoring:"Monitoring",
-        raw:"Data Raw",
-        balance:"Balance",
-        audit:"Audit",
-        report:"Report",
-        settings:"Settings"
+    /* Judul halaman */
+
+    const titles = {
+
+        dashboard: "Dashboard",
+        monitoring: "Monitoring",
+        raw: "Data Raw",
+        balance: "Balance",
+        audit: "Audit",
+        report: "Report",
+        settings: "Settings"
+
     };
 
-    document.getElementById("pageTitle").textContent=
-        titles[viewId] || "Dashboard";
+
+    const pageTitle =
+        document.getElementById("pageTitle");
+
+    if(pageTitle){
+
+        pageTitle.textContent =
+            titles[viewId] || "Dashboard";
+
+    }
 
 
-    document.getElementById("sidebar")
-        .classList.remove("open");
+    /* Tutup sidebar pada tampilan mobile */
+
+    const sidebar =
+        document.getElementById("sidebar");
+
+    if(sidebar){
+
+        sidebar.classList.remove("open");
+
+    }
+
+
+    /* Jalankan fungsi khusus halaman */
+
+    if(viewId === "dashboard"){
+
+        if(typeof loadDashboard === "function"){
+
+            loadDashboard();
+
+        }
+
+    }
+
+    if(viewId === "raw"){
+
+        if(typeof loadRawData === "function"){
+
+            loadRawData();
+
+        }
+
+    }
+
+    if(viewId === "balance"){
+
+        if(typeof loadBalance === "function"){
+
+            loadBalance();
+
+        }
+
+    }
+
+    if(viewId === "audit"){
+
+        if(typeof loadAudit === "function"){
+
+            loadAudit();
+
+        }
+
+    }
 
 }
-
 
 /* MOBILE SIDEBAR */
 
