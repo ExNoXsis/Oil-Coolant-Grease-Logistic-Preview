@@ -1173,12 +1173,9 @@ td{
 
 let currentUser = null;
 
+/* LOGIN */
 
-/* =========================
-   LOGIN
-========================= */
-
-async function login() {
+async function login(){
 
     const username =
         document.getElementById("username").value.trim();
@@ -1186,8 +1183,7 @@ async function login() {
     const password =
         document.getElementById("password").value;
 
-    /* VALIDASI INPUT */
-    if (!username || !password) {
+    if(!username || !password){
 
         alert("Username dan password harus diisi.");
 
@@ -1196,53 +1192,31 @@ async function login() {
 
     try {
 
-        /* =========================
+        /* =========================================
            1. CARI EMAIL BERDASARKAN USERNAME
-        ========================= */
+           ========================================= */
 
-        const {
-            data: email,
-            error: emailError
-        } = await supabaseClient.rpc(
-            "get_login_email",
-            {
-                p_username: username
-            }
-        );
-
-        if (emailError) {
-
-            console.error(
-                "GET LOGIN EMAIL ERROR:",
-                emailError
+        const { data: email, error: emailError } =
+            await supabaseClient.rpc(
+                "get_login_email",
+                {
+                    p_username: username
+                }
             );
 
+        if(emailError){
+
+            console.error("RPC ERROR:", emailError);
+
             alert(
-                "Gagal mencari akun.\n\n" +
+                "Gagal mencari akun:\n" +
                 emailError.message
             );
 
             return;
         }
 
-        console.log(
-            "USERNAME:",
-            username
-        );
-
-        console.log(
-            "EMAIL HASIL RPC:",
-            email
-        );
-
-
-        /* CEK EMAIL */
-        if (!email || typeof email !== "string") {
-
-            console.warn(
-                "RPC tidak mengembalikan email yang valid:",
-                email
-            );
+        if(!email){
 
             alert(
                 "Username tidak ditemukan atau akun tidak aktif."
@@ -1252,263 +1226,134 @@ async function login() {
         }
 
 
-        /* =========================
+        /* =========================================
            2. LOGIN SUPABASE AUTH
-        ========================= */
+           ========================================= */
 
-        const {
-            data: authData,
-            error: authError
-        } = await supabaseClient.auth.signInWithPassword({
+        const { data, error } =
+            await supabaseClient.auth.signInWithPassword({
 
-            email: email.trim(),
+                email: email,
+                password: password
 
-            password: password
-
-        });
+            });
 
 
-        if (authError) {
+        if(error){
 
-            console.error(
-                "LOGIN ERROR:",
-                authError
-            );
+            console.error("AUTH LOGIN ERROR:", error);
 
             alert(
-                "Login gagal.\n\n" +
-                authError.message
+                "Login gagal:\n" +
+                error.message
             );
 
             return;
         }
 
 
-        /* CEK USER */
-        if (!authData || !authData.user) {
+        /* =========================================
+           3. LOGIN AUTH BERHASIL
+           ========================================= */
 
-            console.error(
-                "AUTH BERHASIL TETAPI USER TIDAK DITEMUKAN:",
-                authData
-            );
-
-            alert(
-                "Login gagal: data user tidak ditemukan."
-            );
-
-            return;
-        }
-
+        currentUser = data.user;
 
         console.log(
-            "AUTH USER:",
-            authData.user
+            "SUPABASE AUTH BERHASIL:",
+            data.user
         );
 
 
-        /* =========================
-           3. AMBIL PROFILE USER
-        ========================= */
+        /* =========================================
+           4. LANGSUNG MASUK APLIKASI
+           ========================================= */
+
+        document.getElementById("loginPage")
+            .style.display = "none";
+
+        document.getElementById("app")
+            .style.display = "block";
+
+        document.getElementById("userDisplay")
+            .textContent = username;
+
+        document.getElementById("roleDisplay")
+            .textContent = "User";
+
+
+        /* =========================================
+           5. BACA PROFILE
+           ========================================= */
 
         const {
             data: profile,
             error: profileError
         } = await supabaseClient
             .from("profiles")
-            .select(
-                "id, username, full_name, role, is_active"
-            )
-            .eq(
-                "id",
-                authData.user.id
-            )
+            .select("username, full_name, role, is_active")
+            .eq("id", data.user.id)
             .maybeSingle();
 
 
-        /* PROFILE ERROR */
-        if (profileError) {
+        if(profileError){
 
             console.error(
                 "PROFILE ERROR:",
                 profileError
             );
 
-            await supabaseClient.auth.signOut();
-
-            alert(
-                "Login berhasil, tetapi profile user tidak dapat dibaca.\n\n" +
-                profileError.message
-            );
+            /*
+               Jangan batalkan login.
+               Auth sudah berhasil.
+            */
 
             return;
         }
 
 
-        /* PROFILE TIDAK ADA */
-        if (!profile) {
+        /* =========================================
+           6. TAMPILKAN PROFILE
+           ========================================= */
 
-            console.error(
-                "PROFILE TIDAK DITEMUKAN UNTUK USER:",
-                authData.user.id
-            );
+        if(profile){
 
-            await supabaseClient.auth.signOut();
+            window.currentProfile = profile;
 
-            alert(
-                "Login gagal.\n\n" +
-                "Profile user belum terdaftar."
-            );
+            document.getElementById("userDisplay")
+                .textContent =
+                    profile.full_name ||
+                    profile.username ||
+                    username;
 
-            return;
+            document.getElementById("roleDisplay")
+                .textContent =
+                    profile.role === "admin"
+                        ? "Administrator"
+                        : "User";
+
         }
 
 
         console.log(
-            "PROFILE:",
+            "LOGIN SELESAI:",
             profile
         );
 
-
-        /* =========================
-           4. CEK STATUS AKUN
-        ========================= */
-
-        if (profile.is_active !== true) {
-
-            await supabaseClient.auth.signOut();
-
-            alert(
-                "Akun ini tidak aktif."
-            );
-
-            return;
-        }
-
-
-        /* =========================
-           5. SIMPAN USER
-        ========================= */
-
-        currentUser =
-            authData.user;
-
-        window.currentProfile =
-            profile;
-
-
-        /* =========================
-           6. TAMPILKAN APLIKASI
-        ========================= */
-
-        const loginPage =
-            document.getElementById("loginPage");
-
-        const app =
-            document.getElementById("app");
-
-        if (loginPage) {
-
-            loginPage.style.display =
-                "none";
-        }
-
-        if (app) {
-
-            app.style.display =
-                "block";
-        }
-
-
-        /* =========================
-           7. TAMPILKAN NAMA USER
-        ========================= */
-
-        const userDisplay =
-            document.getElementById("userDisplay");
-
-        if (userDisplay) {
-
-            userDisplay.textContent =
-                profile.full_name ||
-                profile.username ||
-                username;
-        }
-
-
-        /* =========================
-           8. TAMPILKAN ROLE
-        ========================= */
-
-        const roleDisplay =
-            document.getElementById("roleDisplay");
-
-        if (roleDisplay) {
-
-            switch (profile.role) {
-
-                case "admin":
-
-                    roleDisplay.textContent =
-                        "Administrator";
-
-                    break;
-
-
-                case "auditor":
-
-                    roleDisplay.textContent =
-                        "Auditor";
-
-                    break;
-
-
-                case "reader":
-
-                    roleDisplay.textContent =
-                        "Reader";
-
-                    break;
-
-
-                default:
-
-                    roleDisplay.textContent =
-                        "User";
-            }
-        }
-
-
-        /* =========================
-           9. LOGIN BERHASIL
-        ========================= */
-
-        console.log(
-            "LOGIN BERHASIL:",
-            {
-                user: authData.user,
-                profile: profile
-            }
-        );
-
-
-    } catch (error) {
+    } catch(error){
 
         console.error(
-            "LOGIN SYSTEM ERROR:",
+            "LOGIN ERROR:",
             error
         );
 
         alert(
-            "Terjadi kesalahan saat login.\n\n" +
-            (
-                error?.message ||
-                String(error)
-            )
+            "LOGIN ERROR:\n\n" +
+            (error?.message || error)
         );
+
     }
+
 }
-
-
 /* LOGOUT */
 
 function logout(){
