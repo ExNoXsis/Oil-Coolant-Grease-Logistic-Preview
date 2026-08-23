@@ -622,7 +622,8 @@ td{
         </button>
 
         <div class="login-info">
-            Tampilan saat ini mengatakan bahwa Alex sayang Ester.
+            Welcome, this is monitoring website for Oil, Coolant and Grease.
+            Made by Alex.
         </div>
 
     </div>
@@ -1175,6 +1176,8 @@ let currentUser = null;
 
 /* LOGIN */
 
+/* LOGIN */
+
 async function login(){
 
     const username =
@@ -1192,7 +1195,9 @@ async function login(){
 
     try {
 
-        /* Cari email berdasarkan username */
+        /* =========================================
+           1. CARI EMAIL BERDASARKAN USERNAME
+           ========================================= */
 
         const { data: email, error: emailError } =
             await supabaseClient.rpc(
@@ -1206,26 +1211,32 @@ async function login(){
 
             console.error("RPC ERROR:", emailError);
 
-            alert("Gagal mencari akun: " + emailError.message);
+            alert(
+                "Gagal mencari akun: " +
+                emailError.message
+            );
 
             return;
         }
 
         if(!email){
 
-            alert("Username tidak ditemukan atau akun tidak aktif.");
+            alert(
+                "Username tidak ditemukan atau akun tidak aktif."
+            );
 
             return;
         }
 
 
-        /* LOGIN SUPABASE AUTH */
+        /* =========================================
+           2. LOGIN SUPABASE AUTH
+           ========================================= */
 
         const { data, error } =
             await supabaseClient.auth.signInWithPassword({
 
                 email: email,
-
                 password: password
 
             });
@@ -1235,57 +1246,127 @@ async function login(){
 
             console.error("LOGIN ERROR:", error);
 
-            alert("Login gagal: " + error.message);
+            alert(
+                "Login gagal: " +
+                error.message
+            );
 
             return;
         }
 
 
-        /* LOGIN BERHASIL */
-
-        currentUser = data.user;
-
-        document.getElementById("loginPage").style.display = "none";
-
-        document.getElementById("app").style.display = "block";
-
-        document.getElementById("userDisplay").textContent =
-            username;
-
-
-        /* Ambil profile user */
+        /* =========================================
+           3. AMBIL PROFILE USER
+           ========================================= */
 
         const { data: profile, error: profileError } =
             await supabaseClient
                 .from("profiles")
-                .select("username, full_name, role")
+                .select(
+                    "username, full_name, role, is_active"
+                )
                 .eq("id", data.user.id)
                 .single();
 
 
-        if(!profileError && profile){
+        if(profileError){
 
-            document.getElementById("userDisplay").textContent =
-                profile.full_name || profile.username || username;
+            console.error(
+                "PROFILE ERROR:",
+                profileError
+            );
 
-            document.getElementById("roleDisplay").textContent =
+            await supabaseClient.auth.signOut();
+
+            alert(
+                "Login berhasil, tetapi profile user tidak dapat dibaca.\n\n" +
+                profileError.message
+            );
+
+            return;
+        }
+
+
+        /* =========================================
+           4. CEK AKUN AKTIF
+           ========================================= */
+
+        if(!profile.is_active){
+
+            await supabaseClient.auth.signOut();
+
+            alert(
+                "Akun ini tidak aktif."
+            );
+
+            return;
+        }
+
+
+        /* =========================================
+           5. LOGIN BERHASIL
+           ========================================= */
+
+        currentUser = data.user;
+
+
+        document.getElementById("loginPage")
+            .style.display = "none";
+
+
+        document.getElementById("app")
+            .style.display = "block";
+
+
+        /* =========================================
+           6. TAMPILKAN NAMA USER
+           ========================================= */
+
+        document.getElementById("userDisplay")
+            .textContent =
+                profile.full_name ||
+                profile.username ||
+                username;
+
+
+        /* =========================================
+           7. TAMPILKAN ROLE DARI DATABASE
+           ========================================= */
+
+        document.getElementById("roleDisplay")
+            .textContent =
                 profile.role === "admin"
                     ? "Administrator"
                     : "User";
 
-        }
 
-   } catch(error){
+        /* =========================================
+           8. SIMPAN PROFILE UNTUK DIGUNAKAN APLIKASI
+           ========================================= */
 
-    console.error("LOGIN ERROR:", error);
+        window.currentProfile = profile;
 
-    alert(
-        "LOGIN ERROR:" +
-        (error?.message || error)
-    );
 
-}
-}
+        console.log(
+            "LOGIN BERHASIL:",
+            profile
+        );
+
+
+    } catch(error){
+
+        console.error(
+            "LOGIN ERROR:",
+            error
+        );
+
+        alert(
+            "LOGIN ERROR:\n\n" +
+            (error?.message || error)
+        );
+
+    }
+
 
 /* LOGOUT */
 
